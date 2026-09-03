@@ -106,3 +106,18 @@ if(EXISTS "${SEG_MODEL}")
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${SEG_MODEL}" "$<TARGET_FILE_DIR:DLSSCamDemo>/rvm_mobilenetv3_fp32.onnx")
 endif()
+
+# Tracked default configuration. runtime/ holds only user-supplied binaries and is
+# excluded from version control, so the ReShade seed lives here instead. Staged under
+# its real name and never overwritten, because ReShade rewrites it as the user works.
+file(GLOB CONFIG_TEMPLATES "${CMAKE_SOURCE_DIR}/config/*.template")
+foreach(tpl ${CONFIG_TEMPLATES})
+    get_filename_component(tplname "${tpl}" NAME)
+    string(REPLACE ".template" "" tplname "${tplname}")
+    add_custom_command(TARGET DLSSCamDemo POST_BUILD
+        COMMAND ${CMAKE_COMMAND}
+            -DSRC=${tpl}
+            -DDST=$<TARGET_FILE_DIR:DLSSCamDemo>/${tplname}
+            -P "${CMAKE_SOURCE_DIR}/cmake/copy_if_absent.cmake")
+endforeach()
+

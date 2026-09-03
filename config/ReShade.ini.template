@@ -1,0 +1,51 @@
+; ReShade configuration for DLSSCamDemo.
+; Staged into the build output only when it is not already there, so slider changes
+; made in the overlay survive a rebuild.
+
+[GENERAL]
+EffectSearchPaths=.\reshade-shaders\Shaders\**\**
+IntermediateCachePath=.\reshade-cache
+NoDebugInfo=1
+NoEffectCache=0
+PerformanceMode=0
+PresetPath=.\ReShadePreset.ini
+TextureSearchPaths=.\reshade-shaders\Textures\**\**
+
+[INPUT]
+; Home opens the overlay, Print Screen writes a screenshot of the final image.
+ForceShortcutModifiers=1
+GamepadNavigation=0
+InputProcessing=2
+KeyOverlay=36,0,0,0
+KeyScreenshot=44,0,0,0
+
+[OVERLAY]
+ShowFPS=2
+FPSPosition=1
+TutorialProgress=4
+
+[SCREENSHOT]
+ClearAlpha=1
+FileFormat=1
+FileNaming=%AppName% %Date% %Time%_%Count%
+SavePath=.\captures\
+SaveOverlayShot=0
+
+[ADDON]
+; Deep Fried Chicken must be loaded from DllMain to claim feature-1 ownership.
+LoadFromDllMain=deep-fried-chicken.addon64
+; Start with the Neural Rendering panel expanded; it is the point of this demo.
+OverlayCollapsed=
+
+[RenoDX.DLSS5]
+; Style 0=Default 1=Natural 2=Cinematic. The remaining values are strength steps.
+NRStyle=1
+NRIntensity=2
+NRLocalTone=2
+NRLocalStructure=2
+NRSkinStructure=2
+NRColorStrength=2
+NRAutoMask=1
+NRUICorrection=1
+NREnableUpscaling=1
+NRPreset=0

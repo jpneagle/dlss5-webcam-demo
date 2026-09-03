@@ -18,30 +18,70 @@ Webcam (Media Foundation capture)
   -> TemporalGuideGenerator      : 実写フレームから MV / 疑似 Depth / bias マスクを推定
   -> D3D12                       : linear FP16 color + RG16F MV + R32 depth + R8 bias
   -> NGX DLSS SR (raw CreateFeature / EvaluateFeature_C)
-       ^ ReShade + renodx-dlss5 addon がここに割り込み Feature 18 (NR) を適用
+       ^ ReShade + NR add-on がここに割り込み Feature 18 (NR) を適用（任意）
   -> マスク合成 + A/B split
   -> swapchain
 ```
 
 DLSS の入出力は既定で **1280x720 入力 -> 2560x1440 出力**。
 
-## 前提
+## 必要なもの
 
-- Windows x64 / Visual Studio 2022 (C++ ワークロード + CMake)
-- NVIDIA RTX GPU
-- Webカメラ 1台以上
-- ONNX Runtime (win-x64) を `external/onnxruntime/` に展開（人物セグメンテーション用）
-- 人物マット用モデルを `models/rvm_mobilenetv3_fp32.onnx` に配置
+このリポジトリはソースのみ。バイナリ・モデル・ランタイムは一切含まれないので、
+以下は利用者が別途用意する。**合計で約 1.4 GB。**
+
+### A. 常に必要（ビルドと基本動作）
+
+| 置き場所 | 中身 | サイズ | 入手 |
+|---|---|---|---|
+| — | Windows x64 / Visual Studio 2022（C++ ワークロード + CMake）| — | Microsoft |
+| — | NVIDIA RTX GPU と Webカメラ | — | — |
+| `external/DLSS/` | NVIDIA DLSS SDK。ヘッダ・`nvsdk_ngx_d.lib`・`nvngx_dlss.dll` | 約760MB | `build_windows.bat` が自動 clone |
+| `external/onnxruntime/` | ONNX Runtime win-x64。ヘッダ・`.lib`・`onnxruntime.dll` | 展開後 約410MB | 下記コマンド（**手動**）|
+
+`external/onnxruntime` が無いと **CMake が構成段階で失敗する**。
 
 ```powershell
-# ONNX Runtime
 Invoke-WebRequest https://github.com/microsoft/onnxruntime/releases/download/v1.29.0/onnxruntime-win-x64-1.29.0.zip -OutFile ort.zip
-Expand-Archive ort.zip .; Move-Item .\onnxruntime-win-x64-1.29.0 .\external\onnxruntime
+Expand-Archive ort.zip .
+Move-Item .\onnxruntime-win-x64-1.29.0 .\external\onnxruntime
+```
 
-# Robust Video Matting (mobilenetv3)
+### B. 人物セグメンテーションを使う場合
+
+| 置き場所 | 中身 | サイズ | ライセンス |
+|---|---|---|---|
+| `models/rvm_mobilenetv3_fp32.onnx` | Robust Video Matting の人物マットモデル | 14.3MB | **GPL-3.0** |
+
+```powershell
 Invoke-WebRequest https://github.com/PeterL1n/RobustVideoMatting/releases/download/v1.0.0/rvm_mobilenetv3_fp32.onnx -OutFile .\models
 vm_mobilenetv3_fp32.onnx
 ```
+
+無い場合は `G` キーが効かず、マスクは楕円のみになる。それ以外は通常どおり動作する。
+
+### C. DLSS 5 Neural Rendering を使う場合のみ
+
+**ここから下が無くてもアプリは動く。** DLSS Super Resolution（1280x720 → 2560x1440）、
+A/B 比較、人物マスク、静止画保存はすべて機能し、30fps 出る。無いのは NR パスだけ。
+
+`runtime/` に置くと、ビルド時に exe の隣へ自動配置される。
+
+| ファイル | 中身 | サイズ | 入手 |
+|---|---|---|---|
+| `runtime/dxgi.dll` | ReShade 6.8 **add-on サポート版**。exe の隣に置くプロキシ方式でインストーラ不要 | 5.6MB | [reshade.me](https://reshade.me/) |
+| `runtime/nvngx_dlssnr.dll` | NVIDIA プロプライエタリの NR ランタイム。RTX 40 系で動くのはコミュニティ改変版で、NVIDIA の Authenticode ハッシュとは一致しない | **166MB** | 非公式配布 |
+| NR コンシューマ（下記のいずれか一方）| NGX を横取りして feature 18 を実行する ReShade add-on | — | — |
+
+NR コンシューマは**どちらか一方だけ**を置く。2つ同時に置くと競合する。
+
+- **Deep Fried Chicken**（推奨・検証済み）— `deep-fried-chicken.addon64` / `deep-fried-chicken-nvngx.dll` / `deep-fried-chicken.cfg` の3点。作者が Discord で配布。
+  DLSS SR の後に NR を 1〜30 パス重ねられる。本デモの検証は v1.4.8-alpha
+- **RenoDX `#DLSS5` build** — `renodx-dlss5.addon64`。RenoDX Discord の `#DLSS5` チャンネル
+
+`runtime/` と `models/` は `.gitignore` 済み。NVIDIA のプロプライエタリバイナリ、
+コミュニティ改変版、Deep Fried Chicken のアーカイブはいずれも再配布しないこと。
+Deep Fried Chicken のライセンスは、アーカイブの再ホストではなく作者の公式リンクの共有を求めている。
 
 ## ビルド
 
@@ -49,31 +89,26 @@ vm_mobilenetv3_fp32.onnx
 build_windows.bat
 ```
 
-`external/DLSS` と `external/ffmpeg` は `../dlss5video/player/external/` へのジャンクション。
-単独で使う場合は `build_windows.bat` が公式 NVIDIA/DLSS SDK を自動で clone する。
-
-## DLSS 5 ランタイムの配置
-
-実験的な NR ランタイムはこのリポジトリに含めない。ユーザーが自分で用意したものを
-`runtime/` へ置くと、ビルド時に exe の隣へ配置される。
-
-```text
-runtime/
-  nvngx_dlssnr.dll          # Ada 対応の実験ランタイム
-  renodx-dlss5.addon64      # ReShade add-on
-  sl.*.dll                  # パッケージが要求する場合
-```
-
-`runtime/` は `.gitignore` 済み。NVIDIA のプロプライエタリバイナリおよびコミュニティ改変版を
-コミット・再配布しないこと。詳細は `../dlss5video/DLSS5_VIDEO_RESEARCH.md` の 20 章を参照。
+`build_windows.bat` は NVIDIA/DLSS SDK を `external/DLSS` へ自動 clone する。
+ONNX Runtime は上記の手順で手動配置しておくこと。
 
 ## 実行
 
-1. ReShade (add-on サポート版) を `DLSSCamDemo.exe` に対して DirectX 12 でインストール
-2. `DLSSCamDemo.exe` を起動しカメラを選択（2台以上あれば選択ダイアログ。選択は ini に保存）
-3. Home キーで ReShade を開き、RenoDX add-on が有効か確認
-4. F6 で NGX feature を作り直すと RenoDX が再フックする
-5. A/B split（既定 ON）で左＝DLSS 入力そのもの、右＝DLSS + NR 出力を比較する
+### NR なし（DLSS Super Resolution のみ）
+
+`DLSSCamDemo.exe` を起動してカメラを選ぶだけ。2台以上あれば選択ダイアログが出る（選択は ini に保存）。
+`S` で A/B 比較、`G` で人物マスク、`F9` で静止画保存。
+
+### NR あり
+
+1. `runtime/` に上記 C のファイルを置いてビルド（exe の隣へ自動配置される）
+2. `config/ReShade.ini.template` がビルド時に `ReShade.ini` として exe の隣に配置される
+   （Deep Fried Chicken に必要な `LoadFromDllMain` が入っている。ビルド時に自動配置もされる）
+3. `DLSSCamDemo.exe` を起動
+4. `DLSSCamDemo.log` に `RAW NGX EvaluateFeature_C SUCCESS`、
+   `deep-fried-chicken.log` に `standalone neural frame succeeded` が出れば NR が乗っている
+5. Home キーで ReShade オーバーレイを開くと、パス数と各パスのパラメータを実行中に変更できる
+6. `S` を押して並置モードにすると、左＝適用前 / 右＝適用後を同一フレームで比較できる
 
 ### 操作
 

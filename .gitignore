@@ -20,6 +20,7 @@
 *.lib
 *.exp
 *.addon64
+# ReShade.ini is generated at runtime; ReShade.ini.template is tracked instead.
 ReShade.ini
 ReShadePreset.ini
 DLSSVideoPlayer.ini
