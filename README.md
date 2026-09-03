@@ -3,6 +3,9 @@
 Webカメラの映像を D3D12 + NVIDIA NGX DLSS に通し、実験的な DLSS 5 Neural Rendering (NR)
 ランタイムによる人物の質感再構築を A/B 比較するための研究用デモ。
 
+**NR を動かすことが目的のデモ**であり、ReShade と NR ランタイムは必須。
+それらが無くても DLSS 超解像だけで起動はするが、それは依存が欠けたときの縮退動作にすぎない。
+
 [DLSS Video Player](https://gitlab.com/JessicaNataliaMods/dlss-5-video-player) (MIT) をベースに、
 入力を動画ファイルから Webカメラへ置き換えたもの。DLSS/NGX の契約、時間ガイド生成、D3D12 レンダラは
 そちら由来で、カメラ入力・人物セグメンテーション・A/B 比較表示・ニューラル出力の色補正を追加している。
@@ -30,7 +33,9 @@ DLSS の入出力は既定で **1280x720 入力 -> 2560x1440 出力**。
 このリポジトリはソースのみ。バイナリ・モデル・ランタイムは一切含まれないので、
 以下は利用者が別途用意する。**合計で約 1.4 GB。**
 
-### A. 常に必要（ビルドと基本動作）
+### 必須
+
+DLSS 5 Neural Rendering を動かすことがこのデモの目的なので、NR 側も含めてすべて必須。
 
 | 置き場所 | 中身 | サイズ | 入手 |
 |---|---|---|---|
@@ -38,6 +43,9 @@ DLSS の入出力は既定で **1280x720 入力 -> 2560x1440 出力**。
 | — | NVIDIA RTX GPU と Webカメラ | — | — |
 | `external/DLSS/` | NVIDIA DLSS SDK。ヘッダ・`nvsdk_ngx_d.lib`・`nvngx_dlss.dll` | 約760MB | `build_windows.bat` が自動 clone |
 | `external/onnxruntime/` | ONNX Runtime win-x64。ヘッダ・`.lib`・`onnxruntime.dll` | 展開後 約410MB | 下記コマンド（**手動**）|
+| `runtime/dxgi.dll` | ReShade 6.8 **add-on サポート版**。exe の隣に置くプロキシ方式でインストーラ不要 | 5.6MB | [reshade.me](https://reshade.me/) |
+| `runtime/nvngx_dlssnr.dll` | NVIDIA プロプライエタリの NR ランタイム。RTX 40 系で動くのはコミュニティ改変版で、NVIDIA の Authenticode ハッシュとは一致しない | **166MB** | 非公式配布 |
+| `runtime/` | NR コンシューマ（下記のいずれか一方）| — | Discord |
 
 `external/onnxruntime` が無いと **CMake が構成段階で失敗する**。
 
@@ -47,7 +55,19 @@ Expand-Archive ort.zip .
 Move-Item .\onnxruntime-win-x64-1.29.0 .\external\onnxruntime
 ```
 
-### B. 人物セグメンテーションを使う場合
+#### NR コンシューマ
+
+NGX を横取りして feature 18 を実行する ReShade add-on。**どちらか一方だけ**を置く。
+2つ同時に置くと競合し、Deep Fried Chicken 側は明示的にもう一方の除去を要求する。
+
+- **Deep Fried Chicken**（推奨・本デモの検証環境）— `deep-fried-chicken.addon64` /
+  `deep-fried-chicken-nvngx.dll` / `deep-fried-chicken.cfg` の3点。作者が Discord で配布。
+  DLSS SR の後に NR を 1〜30 パス重ねられる。検証は v1.4.8-alpha
+- **RenoDX `#DLSS5` build** — `renodx-dlss5.addon64`。RenoDX Discord の `#DLSS5` チャンネル
+
+`runtime/` に置くと、ビルド時に exe の隣へ自動配置される。
+
+### 任意
 
 | 置き場所 | 中身 | サイズ | ライセンス |
 |---|---|---|---|
@@ -60,24 +80,14 @@ vm_mobilenetv3_fp32.onnx
 
 無い場合は `G` キーが効かず、マスクは楕円のみになる。それ以外は通常どおり動作する。
 
-### C. DLSS 5 Neural Rendering を使う場合のみ
+### NR が無い場合の縮退動作
 
-**ここから下が無くてもアプリは動く。** DLSS Super Resolution（1280x720 → 2560x1440）、
-A/B 比較、人物マスク、静止画保存はすべて機能し、30fps 出る。無いのは NR パスだけ。
+ReShade と NR ランタイムが無くてもアプリは起動し、DLSS Super Resolution
+（1280x720 → 2560x1440）、A/B 比較、人物マスク、静止画保存は 30fps で動作する。
+ただし **Neural Rendering は一切走らない**ので、デモとしては成立しない。
+依存が欠けたときに落ちずに縮退するというだけで、想定する使い方ではない。
 
-`runtime/` に置くと、ビルド時に exe の隣へ自動配置される。
-
-| ファイル | 中身 | サイズ | 入手 |
-|---|---|---|---|
-| `runtime/dxgi.dll` | ReShade 6.8 **add-on サポート版**。exe の隣に置くプロキシ方式でインストーラ不要 | 5.6MB | [reshade.me](https://reshade.me/) |
-| `runtime/nvngx_dlssnr.dll` | NVIDIA プロプライエタリの NR ランタイム。RTX 40 系で動くのはコミュニティ改変版で、NVIDIA の Authenticode ハッシュとは一致しない | **166MB** | 非公式配布 |
-| NR コンシューマ（下記のいずれか一方）| NGX を横取りして feature 18 を実行する ReShade add-on | — | — |
-
-NR コンシューマは**どちらか一方だけ**を置く。2つ同時に置くと競合する。
-
-- **Deep Fried Chicken**（推奨・検証済み）— `deep-fried-chicken.addon64` / `deep-fried-chicken-nvngx.dll` / `deep-fried-chicken.cfg` の3点。作者が Discord で配布。
-  DLSS SR の後に NR を 1〜30 パス重ねられる。本デモの検証は v1.4.8-alpha
-- **RenoDX `#DLSS5` build** — `renodx-dlss5.addon64`。RenoDX Discord の `#DLSS5` チャンネル
+### 再配布について
 
 `runtime/` と `models/` は `.gitignore` 済み。NVIDIA のプロプライエタリバイナリ、
 コミュニティ改変版、Deep Fried Chicken のアーカイブはいずれも再配布しないこと。
@@ -94,14 +104,7 @@ ONNX Runtime は上記の手順で手動配置しておくこと。
 
 ## 実行
 
-### NR なし（DLSS Super Resolution のみ）
-
-`DLSSCamDemo.exe` を起動してカメラを選ぶだけ。2台以上あれば選択ダイアログが出る（選択は ini に保存）。
-`S` で A/B 比較、`G` で人物マスク、`F9` で静止画保存。
-
-### NR あり
-
-1. `runtime/` に上記 C のファイルを置いてビルド（exe の隣へ自動配置される）
+1. `runtime/` に ReShade・NR ランタイム・NR コンシューマを置いてビルド（exe の隣へ自動配置される）
 2. `config/ReShade.ini.template` がビルド時に `ReShade.ini` として exe の隣に配置される
    （Deep Fried Chicken に必要な `LoadFromDllMain` が入っている。ビルド時に自動配置もされる）
 3. `DLSSCamDemo.exe` を起動
@@ -109,6 +112,8 @@ ONNX Runtime は上記の手順で手動配置しておくこと。
    `deep-fried-chicken.log` に `standalone neural frame succeeded` が出れば NR が乗っている
 5. Home キーで ReShade オーバーレイを開くと、パス数と各パスのパラメータを実行中に変更できる
 6. `S` を押して並置モードにすると、左＝適用前 / 右＝適用後を同一フレームで比較できる
+
+カメラは 2台以上あれば起動時に選択ダイアログが出る（選択は ini に保存）。
 
 ### 操作
 
@@ -245,54 +250,97 @@ HDR Transfer Strength    1.00   (上限)
 
 NR には 2 つの経路があり、**動作するのは注入経路**。
 
-### 1. ReShade + RenoDX 注入（動作確認済み）
+### 1. ReShade + NR コンシューマの注入（動作確認済み）
 
-`runtime/` に `dxgi.dll`(ReShade 6.8 add-on 版) と `renodx-dlss5.addon64` を置くと、
-ビルド時に exe の隣へ配置される。インストーラは不要で、この exe だけに閉じた配置になる。
+`runtime/` に置いたものがビルド時に exe の隣へ配置される。インストーラは不要で、
+この exe だけに閉じた配置になる。
 
 ```text
 runtime/
-  dxgi.dll                  # ReShade 6.8 (add-on サポート版)
-  renodx-dlss5.addon64      # DLSS 5 Neural Rendering add-on
-  nvngx_dlssnr.dll          # NR ランタイム本体
-  ReShade.ini               # 初回のみ配置される。以降は上書きしない
+  dxgi.dll                        # ReShade 6.8 (add-on サポート版)
+  nvngx_dlssnr.dll                # NR ランタイム本体
+  deep-fried-chicken.addon64      # NR コンシューマ
+  deep-fried-chicken-nvngx.dll    #   ブリッジ
+  deep-fried-chicken.cfg          #   設定。初回のみ配置され以降は上書きしない
 ```
 
-起動すると RenoDX が NGX を横取りして NR を適用する。確認できるログ:
+`config/ReShade.ini.template` が `ReShade.ini` として配置される。Deep Fried Chicken は
+DllMain からロードされる必要があるため `LoadFromDllMain` が入っている。
+
+#### Deep Fried Chicken（推奨）
+
+このアプリは NGX を直接叩いてネイティブ DLSS SR を持つので、Chicken の **standalone 経路**が
+そのまま使える。DLSS5-Feeder のような外部のガイド供給は不要。
 
 ```text
-[DLSS 5 Neural Rendering] DLSS5 Generic: signed DLSSNR 310.8.0 D3D12 runtime initialized
-[DLSS 5 Neural Rendering] DLSS5 Generic: feature 18 created via the signed snippet
-                          after DLSS/DLAA for NR input 1280x720 -> output 2560x1440
-[DLSS 5 Neural Rendering] DLSS5 Generic: inline feature 18 evaluation succeeded (count=60, ...)
+standalone direct DLSSNR initialized through isolated bridge:
+  runtime=<exe dir>/nvngx_dlssnr.dll  bridge=<exe dir>/deep-fried-chicken-nvngx.dll
+create #1 feature 18: A=0x00000001 Success; MODE=TWO_PASSES requested=2
+standalone feature 18 created: game=1280x720->2560x1440 neural=2560x1440->2560x1440
+evaluate #1 pass 1 handle=... Color=game       Depth=game MVec=game
+evaluate #1 pass 2 handle=... Color=previous-pass Depth=game MVec=game
+standalone neural frame succeeded: count=3
 ```
 
-NR 有効時も 30fps を維持する。`ReShade.log` に
-`Failed to find NVSDK_NGX_D3D12_EvaluateFeature_C` が出るが実害はない。RenoDX は
-`EvaluateFeature` 側のフックと inline capture で contract を捕まえている。
+`Depth=game MVec=game` は、本アプリが生成した推定 Depth とモーションベクトルが
+実際に使われていることを示す。
 
-**Style / Intensity / Local Tone / Local Structure / Skin Structure / Color Strength /
-Auto Mask のスライダーは ReShade オーバーレイ（Home キー）の RenoDX パネル**にある。
-値は `ReShade.ini` の `[RenoDX.DLSS5]` に保存されるので、起動前に書き換えてもよい。
+**`deep-fried-chicken.cfg` の `layers` が最大の効きどころ**（1〜30）。DLSS SR の後に NR を
+数珠つなぎで重ね、各パスの入力が前パスの出力になる。RTX 4090 / 2560x1440 での実測:
+
+| layers | fps | 単純拡大比の構造量 |
+|---|---|---|
+| 1 | 30.0 | 1.29x |
+| **2** | **30.0** | **1.41x** |
+| 4 | 1.2（実用外）| 未測定 |
+
+主なパラメータ:
 
 ```ini
-[RenoDX.DLSS5]
-NRStyle=1          ; 0=Default 1=Natural 2=Cinematic
-NRIntensity=2
-NRLocalTone=2
-NRLocalStructure=2
-NRSkinStructure=2
-NRColorStrength=2
-NRAutoMask=1
+layers=2
+preserve_native_tone_color=0   ; 1 にすると色調を原画に固定するが、clean_fry と併用が前提
+clean_fry_enabled=0            ; 多段用のクリーンアップ。色転びは消えるが構造も削れる
+clean_fry_cleanup_strength=0.650
+neural_work_percent=100
+layer_N_nr_preset / nr_style / intensity / local_tone / local_structure / skin_structure
 ```
 
-#### 静止画 A/B の撮り方
+パス数と各パスのパラメータは **ReShade オーバーレイ（Home キー）の Chicken タブで実行中に
+変更できる**。同一フレームでの A/B はここでパス数を切り替えて `F9` を2回押すのが確実。
 
-同一フレームで比較するには **1 セッション内**で切り替える。オーバーレイの
-"Enable DLSS Neural Rendering" を off にして `F9`、on に戻して `F9`。
-add-on を出し入れして 2 回起動する方法だと、その間に被写体が動いてしまい厳密な比較にならない。
+`preserve_native_tone_color=1` を `clean_fry_enabled=0` で使うと 15fps 前後まで落ちて
+不安定になる（2回とも再現）。この2つはセットで使う前提と思われる。
 
-ライブでの比較は A/B split（既定 ON）で、左＝DLSS 入力そのもの、右＝DLSS + NR。
+#### RenoDX `#DLSS5` build（代替）
+
+`renodx-dlss5.addon64` を単独で置く。Chicken とは併用不可。
+Style / Intensity / Local Tone / Local Structure / Skin Structure / Color Strength /
+Auto Mask のスライダーが ReShade オーバーレイの RenoDX パネルに出る。値は
+`ReShade.ini` の `[RenoDX.DLSS5]` に保存される。
+
+実測で確認した上限（`ReShade.ini` に大きい値を書いてもクランプされる）:
+
+```text
+NR Intensity / Local Tone / Local Structure / Skin Structure : 2.00
+Color Strength / HDR Transfer Strength                       : 1.00
+```
+
+`ReShade.log` に `Failed to find NVSDK_NGX_D3D12_EvaluateFeature_C` が出るが実害はない。
+RenoDX は `EvaluateFeature` 側のフックと inline capture で contract を捕まえている。
+
+#### 色転びについて
+
+NR は出力の色温度を寒色側へ、輝度を上へずらす。実測値（入力との差）:
+
+| 条件 | R−B | 輝度 |
+|---|---|---|
+| 1パス | −14.7 | +5.4 |
+| 2パス | −15.9 | +10.1 |
+
+これは NR 固有の性質でパス数のせいではない。本アプリは present パス（NR より後段）で
+ニューラル側だけに per-channel ゲインをかけて補正する。`[` `]` で色温度、`0` でリセット。
+`DLSSCamDemo.ini` の `[neural] warmth` / `exposure` に保存される。
+**A/B 比較の参照側にはこの補正がかからない**ので、比較が歪まない。
 
 ### 2. Feature 18 の直接呼び出し（現状ブロック、`--nr-direct` で再現可能）
 
