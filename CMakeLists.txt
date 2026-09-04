@@ -69,6 +69,9 @@ add_custom_command(TARGET DLSSCamDemo POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_SOURCE_DIR}/LICENSE"
         "$<TARGET_FILE_DIR:DLSSCamDemo>/LICENSE"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/THIRD_PARTY.md"
+        "$<TARGET_FILE_DIR:DLSSCamDemo>/THIRD_PARTY.md"
 )
 
 # Experimental DLSS 5 / Neural Rendering runtime.

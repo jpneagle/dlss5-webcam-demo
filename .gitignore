@@ -23,8 +23,8 @@
 # ReShade.ini is generated at runtime; ReShade.ini.template is tracked instead.
 ReShade.ini
 ReShadePreset.ini
-DLSSVideoPlayer.ini
-DLSSVideoPlayer.log
+DLSSCamDemo.ini
+DLSSCamDemo.log
 ReShade.log
 
 # Local archives / generated checksums
